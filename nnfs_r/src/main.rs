@@ -1,5 +1,5 @@
 use std::iter::zip;
-use ndarray::arr1;
+use ndarray::{arr1, arr2};
 
 
 fn main() {
@@ -15,27 +15,17 @@ fn main() {
     println!("Neuron output: {output}");
 
     // Layer of Neurons concepts with 3 neurons connected to the same input but with different weights and biases
-    let inputs = [1.0, 2.0, 3.0, 2.5];
-    let weights = [
+    // Implementation changed to use ndarray - dot product
+    let inputs = arr1(&[1.0, 2.0, 3.0, 2.5]);
+    let weights = arr2(&[
             [0.2, 0.8, -0.5, 1.0],
             [0.5, -0.91, 0.26, -0.5],
             [-0.26, -0.27, 0.17, 0.87],
-        ];
-    let biases = [2.0, 3.0, 0.5];
+        ]);
+    let biases = arr1(&[2.0, 3.0, 0.5]);
 
-    let mut layer_outputs: Vec<f64> = Vec::new();
-
-    for (neuron_weights, neuron_bias) in zip(weights, biases){
-        let mut neuron_output = 0.0;
-
-        for (n_input, weight) in zip(inputs, neuron_weights) {
-            neuron_output += n_input * weight;
-        }
-
-        neuron_output += neuron_bias;
-
-        layer_outputs.push(neuron_output);
-    }
+    // notice the change in the dot product calculation (this is the correct way to support the array shape)
+    let layer_outputs = weights.dot(&inputs) + biases;
 
     println!("Neuron Layer output: {:?}", layer_outputs);
 }
