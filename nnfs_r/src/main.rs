@@ -49,4 +49,29 @@ fn main() {
     let layer_outputs = inputs.dot(&weights.t()) + biases;
 
     println!("Neuron Layer output: {:?}", layer_outputs);
+
+    // Dense layer concepts with 4 inputs, and two hidden layers of 3 neurons each
+    let inputs = arr2(&[
+        [1.0, 2.0, 3.0, 2.5],
+        [2.0, 5.0, -1.0, 2.0],
+        [-1.5, 2.7, 3.3, -0.8]
+    ]);
+    let weights = arr2(&[
+        [0.2, 0.8, -0.5, 1.0],
+        [0.5, -0.91, 0.26, -0.5],
+        [-0.26, -0.27, 0.17, 0.87]
+    ]);
+
+    let biases = arr1(&[2.0, 3.0, 0.5]);
+
+    let weights2 = arr2(&[
+        [0.1, -0.14, 0.5],
+        [-0.5, 0.12, -0.33],
+        [-0.44, 0.73, -0.13]]);
+    let biases2 = arr1(&[-1.0, 2.0, -0.5]);
+
+    let layer1_outputs = inputs.dot(&weights.t()) + biases;
+    let dense_layer_outputs = layer1_outputs.dot(&weights2.t()) + biases2;
+
+    println!("Neuron Layer output: {:?}", dense_layer_outputs);
 }
