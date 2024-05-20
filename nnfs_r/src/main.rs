@@ -1,4 +1,3 @@
-use std::iter::zip;
 use ndarray::{arr1, arr2};
 
 
@@ -24,8 +23,30 @@ fn main() {
         ]);
     let biases = arr1(&[2.0, 3.0, 0.5]);
 
-    // notice the change in the dot product calculation (this is the correct way to support the array shape)
+    // notice the change in the dot product calculation (this is the not the ideal way to support the array shape)
     let layer_outputs = weights.dot(&inputs) + biases;
+
+    // Layer of Neurons with 3 nuerons with a batch of inputs (sample)
+    let inputs = arr2(&[
+            [1.0, 2.0, 3.0, 2.5],
+            [2.0, 5.0, -1.0, 2.0],
+            [-1.5, 2.7, 3.3, -0.8]
+    ]);
+    let weights = arr2(&[
+            [0.2, 0.8, -0.5, 1.0],
+            [0.5, -0.91, 0.26, -0.5],
+            [-0.26, -0.27, 0.17, 0.87]
+        ]);
+
+    let biases = arr1(&[2.0, 3.0, 0.5]);
+
+    // Matrix multiplication is employed here since we have a batch of inputs
+    // a.b = abT
+    
+    // Notice that we have again reversed the parameters back to the inputs as first parameter for the dot product
+    // This is because it would be ideal to have the output layer be defined by the input sample rather than the no. of neurons / their weights
+    // Refer page 37
+    let layer_outputs = inputs.dot(&weights.t()) + biases;
 
     println!("Neuron Layer output: {:?}", layer_outputs);
 }
