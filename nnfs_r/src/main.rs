@@ -21,23 +21,37 @@ impl DenseLayer {
     pub fn forward(&mut self, inputs: Array2<f64>) {
         self.outputs = inputs.dot(&self.weights) + &self.biases;
     }
+}
+
+struct ActivationReLU {
+    outputs: Array2<f64>,
+}
+
+impl ActivationReLU {
+    pub fn new() -> Self {
+        ActivationReLU {
+            outputs: Array2::zeros((0, 0)),
+        }
+    }
 
     // ReLU is a linear function that outputs the input for all + inputs and 0 for -ve inputs
-    pub fn activation_relu(&mut self) {
-        self.outputs = self.outputs.mapv(|x| x.max(0.0));
+    pub fn forward(&mut self, inputs: &Array2<f64>) {
+        self.outputs = inputs.mapv(|i| i.max(0.0));
     }
 }
 
 fn main() {
     // Notice that the shape for the inputs and Neuron's weights match
     // Random data is fine for now but we would need to have the sample data in a persistent storage (likely a file) when we get to training the network
-    let inputs = Array2::random((6, 4), Uniform::new(-4.5, 1.53));
+    let inputs = Array2::random((6, 4), Uniform::new(-2.5, 2.53));
     let mut dense_layer = DenseLayer::new(4, 3);
 
     println!("Layer: {:?}", dense_layer);
     dense_layer.forward(inputs);
 
     println!("Output: {:?}", dense_layer.outputs);
-    dense_layer.activation_relu();
-    println!("Output: {:?}", dense_layer.outputs);
+
+    let mut activation_relu = ActivationReLU::new();
+    activation_relu.forward(&dense_layer.outputs);
+    println!("ReLU Output: {:?}", activation_relu.outputs);
 }
