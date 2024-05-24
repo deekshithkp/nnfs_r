@@ -76,6 +76,21 @@ impl ActivationSoftMax {
 }
 
 fn main() {
+
+    // Catrgorical cross entropy concepts
+    // This will be scratched off in the next commit
+    let inputs: Vec<f64> = vec![0.7, 0.1, 0.2]; // softmax_output
+    let target_class: Vec<f64> = vec![1.0, 0.0, 0.0];
+
+    // loss is calculated by negating the sum of the natural log of the predictions (inputs) multiplied by the target output)
+    let loss = - (
+        inputs[0].ln() * target_class[0] +
+        inputs[1].ln() * target_class[1] +
+        inputs[2].ln() * target_class[2]
+    );
+
+    println!("Categorical cross entropy: {loss}");
+
     // Notice that the shape for the inputs and Neuron's weights match
     // Random data is fine for now but we would need to have the sample data in a persistent storage (likely a file) when we get to training the network
     let inputs = Array2::random((6, 4), Uniform::new(-2.5, 2.53));
