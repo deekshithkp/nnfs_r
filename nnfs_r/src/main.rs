@@ -1,4 +1,4 @@
-use ndarray::{Axis,Array2};
+use ndarray::{Axis,Array1,Array2};
 use ndarray_rand::{self, rand_distr::Uniform, RandomExt};
 use ndarray_stats::QuantileExt;
 
@@ -75,25 +75,60 @@ impl ActivationSoftMax {
     }
 }
 
+struct CategoricalCrossEntropyLoss {
+    output: f64,
+}
+
+impl CategoricalCrossEntropyLoss {
+    fn new() -> Self {
+        CategoricalCrossEntropyLoss {
+            output: 0.,
+        }
+    }
+
+    fn forward(y_pred: Array2<f64>, y_true: Array2<f64>) -> Array1<f64> {
+        // Number of samples in a batch
+        let samples = y_pred.len();
+
+        // Clip data to a non-zero number (insignificant magnitude) to avoid divide-by-zero hell
+        // Both ends are clipped so as to not influence the mean value
+        let clipped_values = y_pred.mapv(|x| x.max(1e-7).min(1.0 - 1e-7));
+        
+        // Probabilities for target values - account for both class labels as well as one-hot encoded labels
+        let correct_confidences = 
+        if y_true.shape().len() ==1 {
+            // class labels
+            let mut confidences = Array1::<f64>::zeros(samples);
+
+            for i in 0..samples {
+                confidences[i] = clipped_values[[i, y_true[[i, 0]] as usize]];
+            }
+            confidences
+        } else {
+            // one-hot code encoded labels
+            (clipped_values * y_true).sum_axis(Axis(1))
+        };
+
+        // Losses
+        let negative_likelyhoods = correct_confidences.mapv(|v| -v.ln());
+        negative_likelyhoods
+
+    }
+
+    fn calculate(&mut self, output: Array2<f64>, y: Array2<f64>) {
+        let sample_losses = Self::forward(output, y);
+
+        // Calculate mean loss
+        let data_loss = sample_losses.mean();
+        self.output = data_loss.unwrap();
+    }
+}
+
 fn main() {
-
-    // Catrgorical cross entropy concepts
-    // This will be scratched off in the next commit
-    let inputs: Vec<f64> = vec![0.7, 0.1, 0.2]; // softmax_output
-    let target_class: Vec<f64> = vec![1.0, 0.0, 0.0];
-
-    // loss is calculated by negating the sum of the natural log of the predictions (inputs) multiplied by the target output)
-    let loss = - (
-        inputs[0].ln() * target_class[0] +
-        inputs[1].ln() * target_class[1] +
-        inputs[2].ln() * target_class[2]
-    );
-
-    println!("Categorical cross entropy: {loss}");
-
     // Notice that the shape for the inputs and Neuron's weights match
     // Random data is fine for now but we would need to have the sample data in a persistent storage (likely a file) when we get to training the network
     let inputs = Array2::random((6, 4), Uniform::new(-2.5, 2.53));
+    let y = Array2::random((6, 3), Uniform::new(0., 2.46));
     let mut dense_layer1 = DenseLayer::new(4, 3);
 
     dense_layer1.forward(inputs);
@@ -110,4 +145,8 @@ fn main() {
     let mut activation_softmax = ActivationSoftMax::new();
     activation_softmax.forward(&dense_layer2.outputs);
     println!("SoftMax Output: {:?}", activation_softmax.outputs);
+
+    let mut loss = CategoricalCrossEntropyLoss::new();
+    loss.calculate(activation_softmax.outputs, y);
+    println!("Loss: {}", loss.output);
 }
