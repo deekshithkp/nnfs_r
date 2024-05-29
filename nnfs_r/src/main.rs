@@ -15,7 +15,7 @@ impl DenseLayer {
         DenseLayer {
             weights: Array2::random((n_inputs, n_neurons), Uniform::new(0.0, 0.01)),
             biases: Array2::zeros((1, n_neurons)),
-            outputs: Array2::zeros((n_inputs, 1))
+            outputs: Array2::zeros((1, n_neurons)),
         }
     }
 
@@ -88,12 +88,12 @@ impl CategoricalCrossEntropyLoss {
 
     fn forward(y_pred: Array2<f64>, y_true: Array2<f64>) -> Array1<f64> {
         // Number of samples in a batch
-        let samples = y_pred.len();
+        let samples = y_pred.len_of(Axis(0));
 
         // Clip data to a non-zero number (insignificant magnitude) to avoid divide-by-zero hell
         // Both ends are clipped so as to not influence the mean value
         let clipped_values = y_pred.mapv(|x| x.max(1e-7).min(1.0 - 1e-7));
-        
+
         // Probabilities for target values - account for both class labels as well as one-hot encoded labels
         let correct_confidences = 
         if y_true.shape().len() ==1 {
