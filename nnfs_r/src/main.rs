@@ -1,7 +1,7 @@
 use ndarray::{Axis,Array1,Array2};
 use ndarray_rand::{self, rand_distr::Uniform, RandomExt};
 use ndarray_stats::QuantileExt;
-
+use rand::Rng;
 
 #[derive(Debug)]
 struct DenseLayer {
@@ -127,9 +127,8 @@ impl CategoricalCrossEntropyLoss {
 fn main() {
     // Notice that the shape for the inputs and Neuron's weights match
     // Random data is fine for now but we would need to have the sample data in a persistent storage (likely a file) when we get to training the network
-    let inputs = Array2::random((6, 4), Uniform::new(-2.5, 2.53));
-    let y = Array2::random((6, 3), Uniform::new(0., 2.46));
-    let mut dense_layer1 = DenseLayer::new(4, 3);
+    let (inputs, y) = create_data(4, 3);
+    let mut dense_layer1 = DenseLayer::new(2, 3);
 
     dense_layer1.forward(inputs);
     println!("Layer 1 Output: {:?}", dense_layer1.outputs);
@@ -149,4 +148,28 @@ fn main() {
     let mut loss = CategoricalCrossEntropyLoss::new();
     loss.calculate(activation_softmax.outputs, y);
     println!("Loss: {}", loss.output);
+}
+
+
+fn create_data(samples: usize, classes: usize) -> (Array2<f64>, Array2<f64>) {
+    let mut rng = rand::thread_rng();
+    let mut X = Array2::zeros((samples * classes, 2));
+    let mut y = Array2::zeros((samples * classes, classes));
+
+    for class_number in 0..classes {
+        let start = samples * class_number;
+        let end = samples * (class_number + 1);
+        let r = ndarray::Array::linspace(0.0, 1.0, samples);
+        let mut t = ndarray::Array::linspace(class_number as f64 * 4.0, (class_number + 1) as f64 * 4.0, samples);
+        t = t + rng.gen_range(-0.1..0.1);
+
+        for i in start..end {
+            let x = r[i - start] * t[i - start] * 2.5;
+            X[[i, 0]] = x.sin();
+            X[[i, 1]] = x.cos();
+            y[[i, class_number]] = 1.0;
+        }
+    }
+
+    (X, y)
 }
