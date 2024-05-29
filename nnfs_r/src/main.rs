@@ -19,7 +19,7 @@ impl DenseLayer {
         }
     }
 
-    pub fn forward(&mut self, inputs: Array2<f64>) {
+    pub fn forward(&mut self, inputs: &Array2<f64>) {
         self.outputs = inputs.dot(&self.weights) + &self.biases;
     }
 }
@@ -86,7 +86,7 @@ impl CategoricalCrossEntropyLoss {
         }
     }
 
-    fn forward(y_pred: Array2<f64>, y_true: Array2<f64>) -> Array1<f64> {
+    fn forward(y_pred: &Array2<f64>, y_true: &Array2<f64>) -> Array1<f64> {
         // Number of samples in a batch
         let samples = y_pred.len_of(Axis(0));
 
@@ -115,7 +115,7 @@ impl CategoricalCrossEntropyLoss {
 
     }
 
-    fn calculate(&mut self, output: Array2<f64>, y: Array2<f64>) {
+    fn calculate(&mut self, output: &Array2<f64>, y: &Array2<f64>) {
         let sample_losses = Self::forward(output, y);
 
         // Calculate mean loss
@@ -129,50 +129,77 @@ fn main() {
     // Random data is fine for now but we would need to have the sample data in a persistent storage (likely a file) when we get to training the network
     let (inputs, y) = create_data(100, 3);
     let mut dense_layer1 = DenseLayer::new(2, 3);
-
-    dense_layer1.forward(inputs);
-    println!("Layer 1 Output: {:?}", dense_layer1.outputs);
-
     let mut activation_relu = ActivationReLU::new();
-    activation_relu.forward(&dense_layer1.outputs);
-    println!("ReLU Output: {:?}", activation_relu.outputs);
 
     let mut dense_layer2 = DenseLayer::new(3, 3);
-    dense_layer2.forward(activation_relu.outputs);
-    println!("Layer 2 Output: {:?}", dense_layer2.outputs);
-
     let mut activation_softmax = ActivationSoftMax::new();
-    activation_softmax.forward(&dense_layer2.outputs);
-    println!("SoftMax Output: {:?}", activation_softmax.outputs);
 
-    // Calculate values along the second axis (axis of index 1)
-    let predictions = activation_softmax.outputs
-        .map_axis(Axis(1), |row| row.argmax().unwrap())
-        .into_dimensionality::<Ix1>()
-        .unwrap();
+    let mut loss_function = CategoricalCrossEntropyLoss::new();
 
-    // If targets are one-hot encoded, convert them
-    if y.ndim() == 2 {
-       let y = y
+    // Helper variables
+    let mut lowest_loss = 9999999.; // some initial value
+    let mut best_dense1_weights = dense_layer1.weights.clone();
+    let mut best_dense1_biases = dense_layer1.biases.clone();
+    let mut best_dense2_weights = dense_layer2.weights.clone();
+    let mut best_dense2_biases = dense_layer2.biases.clone();
+
+    for iteration in 0..=10000 {
+        // tweak weights and biases with small values in the hope of improving accuracy
+        dense_layer1.weights = dense_layer1.weights.mapv(|v| v + (0.05 * rand::random::<f64>()));
+        dense_layer1.biases = dense_layer1.biases.mapv(|v| v + (0.05 * rand::random::<f64>()));
+        dense_layer2.weights = dense_layer2.weights.mapv(|v| v + (0.05 * rand::random::<f64>()));
+        dense_layer2.biases = dense_layer2.biases.mapv(|v| v + (0.05 * rand::random::<f64>()));
+
+        // perform a forward pass 
+        dense_layer1.forward(&inputs);
+        activation_relu.forward(&dense_layer1.outputs);
+        dense_layer2.forward(&activation_relu.outputs);
+        activation_softmax.forward(&dense_layer2.outputs);
+
+        // calculate the loss
+        loss_function.calculate(&activation_softmax.outputs, &y);
+        let loss = loss_function.output;
+
+
+        // calculate accuracy from softmax outputs against y
+        let predictions = activation_softmax.outputs
+            .map_axis(Axis(1), |row| row.argmax().unwrap())
+            .into_dimensionality::<Ix1>()
+            .unwrap();
+        let y_for_acc = y
             .map_axis(Axis(1), |row| row.argmax().unwrap())
             .into_dimensionality::<Ix1>()
             .unwrap();
 
-        // True evaluates to 1; False to 0
         let accuracy = predictions
             .iter()
-            .zip(y.iter())
+            .zip(y_for_acc.iter())
             .map(|(p, t)| if p == t { 1.0 } else { 0.0 })
             .sum::<f64>()
             / predictions.len() as f64;
 
-        println!("Accuracy: {}", accuracy);
-    } 
 
-    let mut loss = CategoricalCrossEntropyLoss::new();
-    loss.calculate(activation_softmax.outputs, y);
-    println!("Loss: {}", loss.output);
-}
+        // if loss is smaller, print and save weights & biases
+        if loss < lowest_loss {
+            println!("New set of weights found: Iteration - {iteration}, Loss: {loss}, Accuracy: {accuracy} ");
+            best_dense1_weights = dense_layer1.weights.clone();
+            best_dense1_biases = dense_layer1.biases.clone();
+            best_dense2_weights = dense_layer2.weights.clone();
+            best_dense2_biases = dense_layer2.biases.clone();
+
+            lowest_loss = loss;
+        } 
+        // revert previous values if not improved
+        else {
+            dense_layer1.weights = best_dense1_weights.clone();
+            dense_layer1.biases = best_dense1_biases.clone();
+            dense_layer2.weights = best_dense2_weights.clone();
+            dense_layer2.biases = best_dense2_biases.clone();
+        }
+    }   
+
+
+} 
 
 
 fn create_data(samples: usize, classes: usize) -> (Array2<f64>, Array2<f64>) {
