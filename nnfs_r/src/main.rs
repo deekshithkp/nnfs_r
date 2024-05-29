@@ -1,4 +1,4 @@
-use ndarray::{Axis,Array1,Array2};
+use ndarray::{Array1, Array2, ArrayBase, Axis, Ix1};
 use ndarray_rand::{self, rand_distr::Uniform, RandomExt};
 use ndarray_stats::QuantileExt;
 use rand::Rng;
@@ -127,7 +127,7 @@ impl CategoricalCrossEntropyLoss {
 fn main() {
     // Notice that the shape for the inputs and Neuron's weights match
     // Random data is fine for now but we would need to have the sample data in a persistent storage (likely a file) when we get to training the network
-    let (inputs, y) = create_data(4, 3);
+    let (inputs, y) = create_data(100, 3);
     let mut dense_layer1 = DenseLayer::new(2, 3);
 
     dense_layer1.forward(inputs);
@@ -144,6 +144,30 @@ fn main() {
     let mut activation_softmax = ActivationSoftMax::new();
     activation_softmax.forward(&dense_layer2.outputs);
     println!("SoftMax Output: {:?}", activation_softmax.outputs);
+
+    // Calculate values along the second axis (axis of index 1)
+    let predictions = activation_softmax.outputs
+        .map_axis(Axis(1), |row| row.argmax().unwrap())
+        .into_dimensionality::<Ix1>()
+        .unwrap();
+
+    // If targets are one-hot encoded, convert them
+    if y.ndim() == 2 {
+       let y = y
+            .map_axis(Axis(1), |row| row.argmax().unwrap())
+            .into_dimensionality::<Ix1>()
+            .unwrap();
+
+        // True evaluates to 1; False to 0
+        let accuracy = predictions
+            .iter()
+            .zip(y.iter())
+            .map(|(p, t)| if p == t { 1.0 } else { 0.0 })
+            .sum::<f64>()
+            / predictions.len() as f64;
+
+        println!("Accuracy: {}", accuracy);
+    } 
 
     let mut loss = CategoricalCrossEntropyLoss::new();
     loss.calculate(activation_softmax.outputs, y);
