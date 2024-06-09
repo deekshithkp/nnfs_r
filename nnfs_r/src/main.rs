@@ -1,53 +1,89 @@
-use ndarray::{Array1, Array2, ArrayBase, Axis, Ix1};
+use ndarray::{Array, Array1, Array2, Axis, Ix1, s};
 use ndarray_rand::{self, rand_distr::Uniform, RandomExt};
 use ndarray_stats::QuantileExt;
 use rand::Rng;
 
 #[derive(Debug)]
 struct DenseLayer {
+    inputs: Array2<f64>,
     weights: Array2<f64>,
     biases: Array2<f64>,
     outputs: Array2<f64>,
+
+    dweights: Array2<f64>,
+    dbiases: Array1<f64>,
+    dinputs: Array2<f64>,
 }
 
 impl DenseLayer {
     pub fn new(n_inputs: usize, n_neurons: usize) -> Self {
         DenseLayer {
+            inputs: Array2::zeros((n_inputs, n_neurons)),
             weights: Array2::random((n_inputs, n_neurons), Uniform::new(0.0, 0.01)),
             biases: Array2::zeros((1, n_neurons)),
             outputs: Array2::zeros((1, n_neurons)),
+            dweights: Array2::zeros((0, 0)),
+            dbiases: Array1::zeros(0),
+            dinputs: Array2::zeros((0, 0)),
         }
     }
 
     pub fn forward(&mut self, inputs: &Array2<f64>) {
+        self.inputs = inputs.clone();
         self.outputs = inputs.dot(&self.weights) + &self.biases;
+    }
+
+    pub fn backward(&mut self, dvalues: &Array2<f64>) {
+        // Gradients on parameter
+        self.dweights = self.inputs.t().dot(dvalues);
+        self.dbiases = dvalues.sum_axis(Axis(0));
+        self.dinputs = dvalues.dot(&self.weights.t());
     }
 }
 
 struct ActivationReLU {
+    inputs: Array2<f64>,
     outputs: Array2<f64>,
+    dinputs: Array2<f64>,
 }
 
 impl ActivationReLU {
     pub fn new() -> Self {
         ActivationReLU {
+            inputs: Array2::zeros((0, 0)),
+            dinputs: Array2::zeros((0, 0)),
             outputs: Array2::zeros((0, 0)),
         }
     }
 
     // ReLU is a linear function that outputs the input for all + inputs and 0 for -ve inputs
     pub fn forward(&mut self, inputs: &Array2<f64>) {
+        self.inputs = inputs.clone();
         self.outputs = inputs.mapv(|i| i.max(0.0));
+    }
+
+    pub fn backward(&mut self, dvalues: &Array2<f64>) {
+        self.dinputs = dvalues.clone();
+        
+        // Zero gradient where input values were negative
+        let inputs = &self.inputs;
+        for ((i, j), value) in self.dinputs.indexed_iter_mut() {
+            if inputs[[i, j]] <= 0.0 {
+                *value = 0.0;
+            }
+        }
     }
 }
 
 struct ActivationSoftMax {
+    dinputs: Array2<f64>,
     outputs: Array2<f64>,
 }
 
 impl ActivationSoftMax {
     pub fn new() -> Self {
         ActivationSoftMax {
+            dinputs: Array2::zeros((0, 0)),
             outputs: Array2::zeros((0, 0)),
         }
     }
@@ -73,16 +109,42 @@ impl ActivationSoftMax {
         self.outputs = probabilities;
 
     }
+
+    fn backward(&mut self, dvalues: &Array2<f64>) {
+        // Create uninitialized array
+        let mut dinputs = Array::zeros(dvalues.raw_dim());
+
+        // Enumerate outputs and gradients
+        for (index, (single_output, single_dvalues)) in self.outputs.axis_iter(Axis(0)).zip(dvalues.axis_iter(Axis(0))).enumerate() {
+            // Flatten output array
+        
+            let single_output = single_output.into_shape((single_output.len(), 1)).unwrap();
+            
+            // Calculate Jacobian matrix of the output
+            let jacobian_matrix = Array::<f64, _>::eye(single_output.len()) - &single_output.dot(&single_output.t());
+
+            // Calculate sample-wise gradient
+            let gradient = jacobian_matrix.dot(&single_dvalues);
+
+            // Add it to the array of sample gradients
+            dinputs.slice_mut(s![index, ..]).assign(&gradient);
+        }
+
+        self.dinputs = dinputs;
+    }
+
 }
 
 struct CategoricalCrossEntropyLoss {
     output: f64,
+    dinputs: Array2<f64>,
 }
 
 impl CategoricalCrossEntropyLoss {
     fn new() -> Self {
         CategoricalCrossEntropyLoss {
             output: 0.,
+            dinputs: Array2::zeros((0, 0)),
         }
     }
 
@@ -122,6 +184,106 @@ impl CategoricalCrossEntropyLoss {
         let data_loss = sample_losses.mean();
         self.output = data_loss.unwrap();
     }
+
+    fn backward(&mut self, dvalues: &Array2<f64>, y_true: &Array2<f64>) {
+        // Number of samples
+        let samples = dvalues.shape()[0];
+
+        // Number of labels in each sample - we use the first sample to count them
+        let labels = dvalues.shape()[1];
+
+        // Convert sparse labels to one-hot vector if necessary
+        let y_true_one_hot = if y_true.shape().len() == 1 {
+            let mut one_hot = Array::zeros((samples, labels));
+            for (i, &label) in y_true.iter().enumerate() {
+                one_hot[(i, label as usize)] = 1.0;
+            }
+            one_hot
+        } else {
+            y_true.clone()
+        };
+        
+        // Calculate gradient
+        let mut dinputs = -&y_true_one_hot / dvalues;
+        // Normalize gradient
+        dinputs /= samples as f64;
+
+        self.dinputs =dinputs;
+
+    }
+}
+
+
+struct ActivationSoftMaxLossCategoricalCrossEntropy {
+    activation: ActivationSoftMax,
+    loss: CategoricalCrossEntropyLoss,
+    output: Array2<f64>,
+    dinputs: Array2<f64>,
+}
+
+impl ActivationSoftMaxLossCategoricalCrossEntropy {
+    fn new() -> Self {
+        ActivationSoftMaxLossCategoricalCrossEntropy {
+            activation: ActivationSoftMax::new(),
+            loss: CategoricalCrossEntropyLoss::new(),
+            output: Array2::zeros((0, 0)),
+            dinputs: Array2::zeros((0, 0)),
+        }
+    }
+
+    fn forward(&mut self, inputs: &Array2<f64>, y_true: &Array2<f64>) -> f64 {
+        self.activation.forward(inputs);
+        self.output = self.activation.outputs.clone();
+        self.loss.calculate(&self.output, y_true);
+        return self.loss.output;
+    }
+
+    fn backward(&mut self, dvalues: &Array2<f64>, y_true: &Array2<f64>) {
+        let samples = dvalues.shape()[0];
+
+        let y_true =y_true.map_axis(Axis(1), |row| row.argmax().unwrap());
+
+        self.dinputs = dvalues.clone();
+        for i in 0..self.dinputs.nrows() {
+            self.dinputs[(i, y_true[i])] -= 1.0;
+        }
+
+        self.dinputs /= samples as f64;
+
+    }
+}
+
+struct OptimizerSGD {
+    learning_rate: f64,
+    current_learning_rate: f64,
+    decay: f64,
+    iteration: usize,
+}
+
+impl OptimizerSGD {
+    fn new(learning_rate: f64, decay: f64) -> Self {
+        OptimizerSGD {
+            learning_rate,
+            current_learning_rate: learning_rate,
+            decay,
+            iteration: 0
+        }
+    }
+
+    fn pre_update_params(&mut self) {
+        if self.decay != 0. {
+            self.current_learning_rate = self.learning_rate * (1. / (1. + self.decay * self.iteration as f64));
+        }
+    }
+
+    fn update_params(&self, layer: &mut DenseLayer) {
+        layer.weights -= &(&layer.dweights * self.learning_rate);
+        layer.biases -= &(&layer.dbiases * self.learning_rate);
+    }
+
+    fn post_update_params(&mut self) {
+        self.iteration += 1;
+    }
 }
 
 fn main() {
@@ -132,74 +294,49 @@ fn main() {
     let mut activation_relu = ActivationReLU::new();
 
     let mut dense_layer2 = DenseLayer::new(3, 3);
-    let mut activation_softmax = ActivationSoftMax::new();
+    let mut loss_activation = ActivationSoftMaxLossCategoricalCrossEntropy::new();
 
-    let mut loss_function = CategoricalCrossEntropyLoss::new();
+    let mut optimiser = OptimizerSGD::new(1., 1e-3);
 
-    // Helper variables
-    let mut lowest_loss = 9999999.; // some initial value
-    let mut best_dense1_weights = dense_layer1.weights.clone();
-    let mut best_dense1_biases = dense_layer1.biases.clone();
-    let mut best_dense2_weights = dense_layer2.weights.clone();
-    let mut best_dense2_biases = dense_layer2.biases.clone();
-
-    for iteration in 0..=10000 {
-        // tweak weights and biases with small values in the hope of improving accuracy
-        dense_layer1.weights = dense_layer1.weights.mapv(|v| v + (0.05 * rand::random::<f64>()));
-        dense_layer1.biases = dense_layer1.biases.mapv(|v| v + (0.05 * rand::random::<f64>()));
-        dense_layer2.weights = dense_layer2.weights.mapv(|v| v + (0.05 * rand::random::<f64>()));
-        dense_layer2.biases = dense_layer2.biases.mapv(|v| v + (0.05 * rand::random::<f64>()));
-
-        // perform a forward pass 
+    for epoch in 0..10001 {
         dense_layer1.forward(&inputs);
         activation_relu.forward(&dense_layer1.outputs);
         dense_layer2.forward(&activation_relu.outputs);
-        activation_softmax.forward(&dense_layer2.outputs);
-
-        // calculate the loss
-        loss_function.calculate(&activation_softmax.outputs, &y);
-        let loss = loss_function.output;
-
-
-        // calculate accuracy from softmax outputs against y
-        let predictions = activation_softmax.outputs
-            .map_axis(Axis(1), |row| row.argmax().unwrap())
-            .into_dimensionality::<Ix1>()
-            .unwrap();
+    
+        let loss = loss_activation.forward(&dense_layer2.outputs, &y);   
+    
+        let predictions = loss_activation.output
+                .map_axis(Axis(1), |row| row.argmax().unwrap())
+                .into_dimensionality::<Ix1>()
+                .unwrap();
         let y_for_acc = y
             .map_axis(Axis(1), |row| row.argmax().unwrap())
             .into_dimensionality::<Ix1>()
             .unwrap();
-
+    
         let accuracy = predictions
             .iter()
             .zip(y_for_acc.iter())
             .map(|(p, t)| if p == t { 1.0 } else { 0.0 })
             .sum::<f64>()
             / predictions.len() as f64;
-
-
-        // if loss is smaller, print and save weights & biases
-        if loss < lowest_loss {
-            println!("New set of weights found: Iteration - {iteration}, Loss: {loss}, Accuracy: {accuracy} ");
-            best_dense1_weights = dense_layer1.weights.clone();
-            best_dense1_biases = dense_layer1.biases.clone();
-            best_dense2_weights = dense_layer2.weights.clone();
-            best_dense2_biases = dense_layer2.biases.clone();
-
-            lowest_loss = loss;
-        } 
-        // revert previous values if not improved
-        else {
-            dense_layer1.weights = best_dense1_weights.clone();
-            dense_layer1.biases = best_dense1_biases.clone();
-            dense_layer2.weights = best_dense2_weights.clone();
-            dense_layer2.biases = best_dense2_biases.clone();
+    
+        if epoch % 100 == 0 {
+            println!("Epoch: {epoch}\tAccuracy: {accuracy}\tLoss: {loss}\tLearning rate: {}",optimiser.current_learning_rate);
         }
-    }   
 
+            // Backward pass
+        loss_activation.backward(&loss_activation.output.clone(), &y);
+        dense_layer2.backward(&loss_activation.dinputs);
+        activation_relu.backward(&dense_layer2.dinputs);
+        dense_layer1.backward(&activation_relu.dinputs);
 
-} 
+        optimiser.pre_update_params();
+        optimiser.update_params(&mut dense_layer1);
+        optimiser.update_params(&mut dense_layer2);
+        optimiser.post_update_params();
+    }
+}   
 
 
 fn create_data(samples: usize, classes: usize) -> (Array2<f64>, Array2<f64>) {
