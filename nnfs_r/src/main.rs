@@ -7,12 +7,15 @@ use rand::Rng;
 struct DenseLayer {
     inputs: Array2<f64>,
     weights: Array2<f64>,
-    biases: Array2<f64>,
+    biases: Array1<f64>,
     outputs: Array2<f64>,
 
     dweights: Array2<f64>,
     dbiases: Array1<f64>,
     dinputs: Array2<f64>,
+
+    weight_momentums: Option<Array2<f64>>,
+    bias_momentums: Option<Array1<f64>>,
 }
 
 impl DenseLayer {
@@ -20,11 +23,13 @@ impl DenseLayer {
         DenseLayer {
             inputs: Array2::zeros((n_inputs, n_neurons)),
             weights: Array2::random((n_inputs, n_neurons), Uniform::new(0.0, 0.01)),
-            biases: Array2::zeros((1, n_neurons)),
+            biases: Array1::zeros((n_neurons)),
             outputs: Array2::zeros((1, n_neurons)),
             dweights: Array2::zeros((0, 0)),
             dbiases: Array1::zeros(0),
             dinputs: Array2::zeros((0, 0)),
+            weight_momentums: None,
+            bias_momentums: None,
         }
     }
 
@@ -258,15 +263,17 @@ struct OptimizerSGD {
     current_learning_rate: f64,
     decay: f64,
     iteration: usize,
+    momentum: f64,
 }
 
 impl OptimizerSGD {
-    fn new(learning_rate: f64, decay: f64) -> Self {
+    fn new(learning_rate: f64, decay: f64, momentum: f64) -> Self {
         OptimizerSGD {
             learning_rate,
             current_learning_rate: learning_rate,
             decay,
-            iteration: 0
+            iteration: 0,
+            momentum: momentum,
         }
     }
 
@@ -277,8 +284,31 @@ impl OptimizerSGD {
     }
 
     fn update_params(&self, layer: &mut DenseLayer) {
-        layer.weights -= &(&layer.dweights * self.learning_rate);
-        layer.biases -= &(&layer.dbiases * self.learning_rate);
+
+        if self.momentum != 0. {
+            if layer.weight_momentums.is_none() {
+                layer.weight_momentums = Some(Array2::zeros(layer.weights.raw_dim()));
+                layer.bias_momentums = Some(Array1::zeros(layer.biases.raw_dim()));
+            }
+
+            let weight_updates = self.momentum * layer.weight_momentums.as_ref().unwrap()
+                - self.current_learning_rate * &layer.dweights;
+            layer.weight_momentums = Some(weight_updates.clone());
+
+            let bias_updates = self.momentum * layer.bias_momentums.as_ref().unwrap()
+                - self.current_learning_rate * &layer.dbiases;
+            layer.bias_momentums = Some(bias_updates.clone());
+
+            layer.weights = &layer.weights + weight_updates.clone();
+            layer.biases = &layer.biases + bias_updates.clone();
+        }
+        else {
+            let weight_updates = self.current_learning_rate * &layer.dweights;
+            let bias_updates = self.current_learning_rate * &layer.dbiases;
+
+            layer.weights = &layer.weights + weight_updates;
+            layer.biases = &layer.biases + bias_updates;
+        }
     }
 
     fn post_update_params(&mut self) {
@@ -296,7 +326,7 @@ fn main() {
     let mut dense_layer2 = DenseLayer::new(3, 3);
     let mut loss_activation = ActivationSoftMaxLossCategoricalCrossEntropy::new();
 
-    let mut optimiser = OptimizerSGD::new(1., 1e-3);
+    let mut optimiser = OptimizerSGD::new(1., 1e-3, 0.9);
 
     for epoch in 0..10001 {
         dense_layer1.forward(&inputs);
