@@ -16,6 +16,9 @@ struct DenseLayer {
 
     weight_momentums: Option<Array2<f64>>,
     bias_momentums: Option<Array1<f64>>,
+
+    weight_cache: Option<Array2<f64>>,
+    bias_cache: Option<Array1<f64>>,
 }
 
 impl DenseLayer {
@@ -23,13 +26,15 @@ impl DenseLayer {
         DenseLayer {
             inputs: Array2::zeros((n_inputs, n_neurons)),
             weights: Array2::random((n_inputs, n_neurons), Uniform::new(0.0, 0.01)),
-            biases: Array1::zeros((n_neurons)),
+            biases: Array1::zeros(n_neurons),
             outputs: Array2::zeros((1, n_neurons)),
             dweights: Array2::zeros((0, 0)),
             dbiases: Array1::zeros(0),
             dinputs: Array2::zeros((0, 0)),
             weight_momentums: None,
             bias_momentums: None,
+            weight_cache: None,
+            bias_cache: None,
         }
     }
 
@@ -316,6 +321,51 @@ impl OptimizerSGD {
     }
 }
 
+struct OptimizerAdagrad {
+    learning_rate: f64,
+    current_learning_rate: f64,
+    decay: f64,
+    iteration: usize,
+    epsilon: f64,
+}
+
+impl OptimizerAdagrad {
+    fn new(learning_rate: f64, decay: f64, epsilon: f64) -> Self {
+        Self {
+            learning_rate,
+            current_learning_rate: learning_rate,
+            decay,
+            iteration: 0,
+            epsilon
+        }
+    }
+
+    fn pre_update_params(&mut self) {
+        if self.decay != 0. {
+            self.current_learning_rate = self.learning_rate * (1. / (1. + self.decay * self.iteration as f64));
+        }
+    }
+
+    fn update_params(&mut self, layer: &mut DenseLayer) {
+        if layer.weight_cache.is_none() {
+            layer.weight_cache = Some(Array2::zeros(layer.weights.raw_dim()));
+            layer.bias_cache = Some(Array1::zeros(layer.biases.raw_dim()));
+        }
+
+        let weight_cache = layer.weight_cache.as_mut().unwrap();
+        let bias_cache = layer.bias_cache.as_mut().unwrap();
+        *weight_cache += &layer.dweights.mapv(|x| x * x);
+        *bias_cache += &layer.dbiases.mapv(|x| x * x);
+
+        layer.weights -= &(&layer.dweights * self.current_learning_rate / (&weight_cache.mapv(f64::sqrt) + self.epsilon));
+        layer.biases -= &(&layer.dbiases * self.current_learning_rate / (&bias_cache.mapv(f64::sqrt) + self.epsilon));
+
+    }
+
+    pub fn post_update_params(&mut self) {
+        self.iteration += 1;
+    }
+}
 fn main() {
     // Notice that the shape for the inputs and Neuron's weights match
     // Random data is fine for now but we would need to have the sample data in a persistent storage (likely a file) when we get to training the network
@@ -326,7 +376,7 @@ fn main() {
     let mut dense_layer2 = DenseLayer::new(3, 3);
     let mut loss_activation = ActivationSoftMaxLossCategoricalCrossEntropy::new();
 
-    let mut optimiser = OptimizerSGD::new(1., 1e-3, 0.9);
+    let mut optimiser = OptimizerAdagrad::new(1., 1e-4, 0.9);
 
     for epoch in 0..10001 {
         dense_layer1.forward(&inputs);
