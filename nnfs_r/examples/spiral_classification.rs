@@ -3,6 +3,11 @@
 //! This example demonstrates training a simple neural network on a spiral dataset.
 //! It uses a two-layer network with ReLU activation and softmax output for
 //! multi-class classification.
+//!
+//! Run this example with:
+//! ```bash
+//! cargo run --example spiral_classification
+//! ```
 
 use ndarray::Axis;
 use ndarray_stats::QuantileExt;
