@@ -1,7 +1,6 @@
 //! Categorical cross-entropy loss function
 
 use ndarray::{Array1, Array2, Axis};
-use std::f64::EPSILON;
 
 use super::Loss;
 
@@ -12,7 +11,7 @@ use super::Loss;
 ///
 /// # Formula
 ///
-/// L = -1/N * Σ log(p_c) where p_c is the predicted probability for the correct class
+/// L = -1/N * Σ `log(p_c)` where `p_c` is the predicted probability for the correct class
 ///
 /// # Properties
 ///
@@ -53,20 +52,20 @@ impl Loss for CategoricalCrossEntropyLoss {
     /// Clips predictions to prevent log(0) and ensures numerical stability
     fn forward(y_pred: &Array2<f64>, y_true: &Array1<usize>) -> f64 {
         let samples = y_pred.len_of(Axis(0));
-        
+
         // Clip values to prevent log(0) and log(1)
-        let clipped_values = y_pred.mapv(|x| x.max(EPSILON).min(1.0 - EPSILON));
-        
+        let clipped_values = y_pred.mapv(|x| x.clamp(f64::EPSILON, 1.0 - f64::EPSILON));
+
         // Extract confidence values for correct classes
         let correct_confidences = y_true
             .iter()
             .enumerate()
             .map(|(i, &label)| clipped_values[[i, label]])
             .collect::<Array1<f64>>();
-        
+
         // Compute negative log likelihoods
         let negative_log_likelihoods = correct_confidences.mapv(|v| -v.ln());
-        
+
         // Return mean loss
         negative_log_likelihoods.sum() / samples as f64
     }
@@ -85,8 +84,8 @@ impl Loss for CategoricalCrossEntropyLoss {
         }
 
         // Compute gradient: -y_true / y_pred, normalized by batch size
-        let dinputs = -(&y_true_one_hot / dvalues) / samples as f64;
-        dinputs
+
+        -(&y_true_one_hot / dvalues) / samples as f64
     }
 }
 

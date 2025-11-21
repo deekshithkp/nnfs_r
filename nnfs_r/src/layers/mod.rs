@@ -18,7 +18,7 @@ pub trait Layer {
     ///
     /// # Arguments
     ///
-    /// * `inputs` - Input data as a 2D array (batch_size × input_features)
+    /// * `inputs` - Input data as a 2D array (`batch_size` × `input_features`)
     fn forward(&mut self, inputs: &Array2<f64>);
 
     /// Performs backward propagation through the layer

@@ -22,9 +22,9 @@ use super::Layer;
 /// ```
 #[derive(Debug)]
 pub struct DenseLayer {
-    /// Weight matrix (n_inputs × n_neurons)
+    /// Weight matrix (`n_inputs` × `n_neurons`)
     pub weights: Array2<f64>,
-    /// Bias vector (n_neurons)
+    /// Bias vector (`n_neurons`)
     pub biases: Array1<f64>,
     /// Output from forward propagation
     pub outputs: Array2<f64>,

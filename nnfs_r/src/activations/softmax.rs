@@ -12,7 +12,7 @@ use super::Activation;
 ///
 /// # Formula
 ///
-/// For input vector x, softmax(x)_i = exp(x_i) / Σ(exp(x_j))
+/// For input vector x, softmax(x)_i = `exp(x_i)` / `Σ(exp(x_j))`
 ///
 /// # Properties
 ///
@@ -79,11 +79,11 @@ impl Activation for ActivationSoftMax {
         {
             // Reshape output to column vector for matrix multiplication
             let single_output = single_output.into_shape((single_output.len(), 1)).unwrap();
-            
+
             // Compute Jacobian matrix: diag(output) - output * output^T
             let jacobian_matrix =
                 Array::eye(single_output.len()) - &single_output.dot(&single_output.t());
-            
+
             // Apply chain rule
             let gradient = jacobian_matrix.dot(&single_dvalues);
             dinputs.slice_mut(s![index, ..]).assign(&gradient);
@@ -113,7 +113,7 @@ mod tests {
         assert!((sum - 1.0).abs() < 1e-6);
 
         // Check that all values are positive
-        for &val in softmax.outputs.iter() {
+        for &val in &softmax.outputs {
             assert!(val > 0.0 && val < 1.0);
         }
     }

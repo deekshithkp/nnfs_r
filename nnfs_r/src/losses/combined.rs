@@ -5,8 +5,8 @@
 
 use ndarray::{Array1, Array2};
 
-use crate::activations::{Activation, ActivationSoftMax};
 use super::{CategoricalCrossEntropyLoss, Loss};
+use crate::activations::{Activation, ActivationSoftMax};
 
 /// Combined Softmax Activation and Categorical Cross-Entropy Loss
 ///
@@ -17,7 +17,7 @@ use super::{CategoricalCrossEntropyLoss, Loss};
 /// # Mathematical Optimization
 ///
 /// When combining softmax and cross-entropy, the gradient simplifies to:
-/// d_loss/d_input = (softmax_output - one_hot_labels) / batch_size
+/// `d_loss/d_input` = (`softmax_output` - `one_hot_labels`) / `batch_size`
 ///
 /// This is much simpler than computing gradients separately and is more
 /// numerically stable.
@@ -82,8 +82,8 @@ impl ActivationSoftMaxLossCategoricalCrossEntropy {
         }
 
         // Simplified gradient for combined softmax + categorical cross-entropy
-        let dinputs = (&self.activation.outputs - &y_true_one_hot) / samples as f64;
-        dinputs
+
+        (&self.activation.outputs - &y_true_one_hot) / samples as f64
     }
 
     /// Returns a reference to the softmax outputs from the last forward pass
@@ -108,9 +108,9 @@ mod tests {
         let mut combined = ActivationSoftMaxLossCategoricalCrossEntropy::new();
         let logits = arr2(&[[2.0, 1.0, 0.1], [0.5, 2.0, 0.3]]);
         let labels = arr1(&[0, 1]);
-        
+
         let loss = combined.forward(&logits, &labels);
-        
+
         // Loss should be positive
         assert!(loss > 0.0);
         // Outputs should be valid probabilities
@@ -123,11 +123,11 @@ mod tests {
         let mut combined = ActivationSoftMaxLossCategoricalCrossEntropy::new();
         let logits = arr2(&[[2.0, 1.0, 0.1], [0.5, 2.0, 0.3]]);
         let labels = arr1(&[0, 1]);
-        
+
         combined.forward(&logits, &labels);
         let outputs = combined.outputs().clone();
         let gradients = combined.backward(&outputs, &labels);
-        
+
         assert_eq!(gradients.shape(), logits.shape());
         // Gradients should sum to approximately 0 (due to normalization)
         let grad_sum: f64 = gradients.sum();
@@ -140,11 +140,11 @@ mod tests {
         let mut combined = ActivationSoftMaxLossCategoricalCrossEntropy::new();
         let logits = arr2(&[[10.0, 0.0, 0.0]]); // Very confident prediction for class 0
         let labels = arr1(&[0]);
-        
+
         combined.forward(&logits, &labels);
         let outputs = combined.outputs().clone();
         let gradients = combined.backward(&outputs, &labels);
-        
+
         // For very confident correct prediction, gradient should be close to (1.0 - 1.0) / 1 = 0
         assert!(gradients[[0, 0]].abs() < 0.01);
     }

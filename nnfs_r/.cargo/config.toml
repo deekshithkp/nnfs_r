@@ -1,0 +1,11 @@
+# Rust-specific configuration for clippy and rustfmt
+# This file defines project-wide Rust tooling settings
+
+# Clippy configuration
+[clippy]
+# We allow module_name_repetitions because neural network naming conventions
+# often repeat the component type (e.g., ActivationReLU, LayerDense)
+module-name-repetitions = "allow"
+
+# We allow non_snake_case for ML variable 'X' which is conventional
+non-snake-case = "allow"
