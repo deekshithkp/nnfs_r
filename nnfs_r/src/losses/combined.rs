@@ -82,7 +82,7 @@ impl ActivationSoftMaxLossCategoricalCrossEntropy {
         }
 
         // Simplified gradient for combined softmax + categorical cross-entropy
-        
+
         (&self.activation.outputs - &y_true_one_hot) / samples as f64
     }
 

@@ -84,7 +84,7 @@ impl Loss for CategoricalCrossEntropyLoss {
         }
 
         // Compute gradient: -y_true / y_pred, normalized by batch size
-        
+
         -(&y_true_one_hot / dvalues) / samples as f64
     }
 }
