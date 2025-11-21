@@ -19,6 +19,7 @@
 #![allow(clippy::must_use_candidate)] // Many builder-style methods don't need must_use
 #![allow(clippy::missing_errors_doc)] // Educational code, errors are self-explanatory
 #![allow(clippy::missing_panics_doc)] // Panics in tests are intentional
+#![allow(clippy::cast_precision_loss)] // ML code needs usize to f64 for sample counts
 #![allow(non_snake_case)] // Allow X for features in ML convention
 //!
 //! # Example

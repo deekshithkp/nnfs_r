@@ -11,7 +11,7 @@ use super::Loss;
 ///
 /// # Formula
 ///
-/// L = -1/N * Σ log(p_c) where p_c is the predicted probability for the correct class
+/// L = -1/N * Σ `log(p_c)` where `p_c` is the predicted probability for the correct class
 ///
 /// # Properties
 ///
@@ -84,8 +84,8 @@ impl Loss for CategoricalCrossEntropyLoss {
         }
 
         // Compute gradient: -y_true / y_pred, normalized by batch size
-        let dinputs = -(&y_true_one_hot / dvalues) / samples as f64;
-        dinputs
+        
+        -(&y_true_one_hot / dvalues) / samples as f64
     }
 }
 

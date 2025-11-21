@@ -17,7 +17,7 @@ use crate::activations::{Activation, ActivationSoftMax};
 /// # Mathematical Optimization
 ///
 /// When combining softmax and cross-entropy, the gradient simplifies to:
-/// d_loss/d_input = (softmax_output - one_hot_labels) / batch_size
+/// `d_loss/d_input` = (`softmax_output` - `one_hot_labels`) / `batch_size`
 ///
 /// This is much simpler than computing gradients separately and is more
 /// numerically stable.
@@ -82,8 +82,8 @@ impl ActivationSoftMaxLossCategoricalCrossEntropy {
         }
 
         // Simplified gradient for combined softmax + categorical cross-entropy
-        let dinputs = (&self.activation.outputs - &y_true_one_hot) / samples as f64;
-        dinputs
+        
+        (&self.activation.outputs - &y_true_one_hot) / samples as f64
     }
 
     /// Returns a reference to the softmax outputs from the last forward pass

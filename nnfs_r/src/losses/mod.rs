@@ -32,7 +32,7 @@ pub trait Loss {
     ///
     /// # Arguments
     ///
-    /// * `dvalues` - Predicted values (typically same as y_pred from forward)
+    /// * `dvalues` - Predicted values (typically same as `y_pred` from forward)
     /// * `y_true` - Ground truth labels
     ///
     /// # Returns

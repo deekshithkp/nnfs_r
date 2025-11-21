@@ -19,6 +19,7 @@ use nnfs_r::{
     utils::{accuracy, create_data},
 };
 
+#[allow(non_snake_case)]
 fn main() {
     // Generate spiral dataset: 100 samples per class, 3 classes
     let (X, y) = create_data(100, 3);

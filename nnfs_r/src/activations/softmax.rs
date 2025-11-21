@@ -12,7 +12,7 @@ use super::Activation;
 ///
 /// # Formula
 ///
-/// For input vector x, softmax(x)_i = exp(x_i) / Σ(exp(x_j))
+/// For input vector x, softmax(x)_i = `exp(x_i)` / `Σ(exp(x_j))`
 ///
 /// # Properties
 ///
@@ -113,7 +113,7 @@ mod tests {
         assert!((sum - 1.0).abs() < 1e-6);
 
         // Check that all values are positive
-        for &val in softmax.outputs.iter() {
+        for &val in &softmax.outputs {
             assert!(val > 0.0 && val < 1.0);
         }
     }

@@ -16,10 +16,10 @@ use crate::layers::DenseLayer;
 /// # Formula
 ///
 /// Without momentum:
-/// - weight = weight - learning_rate * gradient
+/// - weight = weight - `learning_rate` * gradient
 ///
 /// With momentum:
-/// - velocity = momentum * velocity - learning_rate * gradient
+/// - velocity = momentum * velocity - `learning_rate` * gradient
 /// - weight = weight + velocity
 ///
 /// # Examples
@@ -71,7 +71,7 @@ impl OptimizerSGD {
 
     /// Creates an SGD optimizer with default parameters
     ///
-    /// Default: learning_rate=0.01, decay=0.0, momentum=0.0
+    /// Default: `learning_rate=0.01`, decay=0.0, momentum=0.0
     pub fn default_params() -> Self {
         Self::new(0.01, 0.0, 0.0)
     }
@@ -87,7 +87,7 @@ impl OptimizerSGD {
 impl Optimizer for OptimizerSGD {
     /// Updates learning rate based on decay
     ///
-    /// Formula: lr = initial_lr * (1 / (1 + decay * iteration))
+    /// Formula: lr = `initial_lr` * (1 / (1 + decay * iteration))
     fn pre_update_params(&mut self) {
         if self.decay != 0.0 {
             self.current_learning_rate =
@@ -97,7 +97,11 @@ impl Optimizer for OptimizerSGD {
 
     /// Updates layer parameters using gradients
     fn update_params(&self, layer: &mut DenseLayer) {
-        if self.momentum != 0.0 {
+        if self.momentum == 0.0 {
+            // Standard SGD update
+            layer.weights -= &(self.current_learning_rate * &layer.dweights);
+            layer.biases -= &(self.current_learning_rate * &layer.dbiases);
+        } else {
             // Update with momentum
             layer.weight_momentums = self.momentum * &layer.weight_momentums
                 - self.current_learning_rate * &layer.dweights;
@@ -106,10 +110,6 @@ impl Optimizer for OptimizerSGD {
 
             layer.weights += &layer.weight_momentums;
             layer.biases += &layer.bias_momentums;
-        } else {
-            // Standard SGD update
-            layer.weights -= &(self.current_learning_rate * &layer.dweights);
-            layer.biases -= &(self.current_learning_rate * &layer.dbiases);
         }
     }
 
@@ -131,7 +131,7 @@ mod tests {
     #[test]
     fn test_sgd_creation() {
         let optimizer = OptimizerSGD::new(0.1, 0.0, 0.0);
-        assert_eq!(optimizer.current_learning_rate, 0.1);
+        assert!((optimizer.current_learning_rate - 0.1).abs() < f64::EPSILON);
         assert_eq!(optimizer.iteration, 0);
     }
 
@@ -140,7 +140,7 @@ mod tests {
         let mut optimizer = OptimizerSGD::new(1.0, 0.1, 0.0);
 
         optimizer.pre_update_params();
-        assert_eq!(optimizer.current_learning_rate, 1.0); // First iteration: 1.0 / (1 + 0.1*0)
+        assert!((optimizer.current_learning_rate - 1.0).abs() < f64::EPSILON); // First iteration: 1.0 / (1 + 0.1*0)
 
         optimizer.post_update_params();
         optimizer.pre_update_params();
