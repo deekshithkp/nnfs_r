@@ -2,6 +2,7 @@
 name = "nnfs_r"
 version = "0.1.0"
 edition = "2021"
+rust-version = "1.70.0"
 authors = ["deekshithkp"]
 description = "Neural Networks from Scratch in Rust - A learning project based on the NNFS book"
 repository = "https://github.com/deekshithkp/nnfs_r"

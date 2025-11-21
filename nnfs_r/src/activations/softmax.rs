@@ -79,11 +79,11 @@ impl Activation for ActivationSoftMax {
         {
             // Reshape output to column vector for matrix multiplication
             let single_output = single_output.into_shape((single_output.len(), 1)).unwrap();
-            
+
             // Compute Jacobian matrix: diag(output) - output * output^T
             let jacobian_matrix =
                 Array::eye(single_output.len()) - &single_output.dot(&single_output.t());
-            
+
             // Apply chain rule
             let gradient = jacobian_matrix.dot(&single_dvalues);
             dinputs.slice_mut(s![index, ..]).assign(&gradient);

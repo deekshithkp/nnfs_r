@@ -1,7 +1,7 @@
 //! Stochastic Gradient Descent (SGD) optimizer
 
-use crate::layers::DenseLayer;
 use super::Optimizer;
+use crate::layers::DenseLayer;
 
 /// Stochastic Gradient Descent optimizer
 ///
@@ -99,20 +99,17 @@ impl Optimizer for OptimizerSGD {
     fn update_params(&self, layer: &mut DenseLayer) {
         if self.momentum != 0.0 {
             // Update with momentum
-            let weight_updates =
-                self.momentum * layer.weight_momentums.clone() - self.current_learning_rate * &layer.dweights;
-            layer.weight_momentums = weight_updates.clone();
+            layer.weight_momentums = self.momentum * &layer.weight_momentums
+                - self.current_learning_rate * &layer.dweights;
+            layer.bias_momentums =
+                self.momentum * &layer.bias_momentums - self.current_learning_rate * &layer.dbiases;
 
-            let bias_updates =
-                self.momentum * layer.bias_momentums.clone() - self.current_learning_rate * &layer.dbiases;
-            layer.bias_momentums = bias_updates.clone();
-
-            layer.weights += &weight_updates;
-            layer.biases += &bias_updates;
+            layer.weights += &layer.weight_momentums;
+            layer.biases += &layer.bias_momentums;
         } else {
             // Standard SGD update
-            layer.weights = layer.weights.clone() - self.current_learning_rate * &layer.dweights;
-            layer.biases = layer.biases.clone() - self.current_learning_rate * &layer.dbiases;
+            layer.weights -= &(self.current_learning_rate * &layer.dweights);
+            layer.biases -= &(self.current_learning_rate * &layer.dbiases);
         }
     }
 
@@ -141,10 +138,10 @@ mod tests {
     #[test]
     fn test_learning_rate_decay() {
         let mut optimizer = OptimizerSGD::new(1.0, 0.1, 0.0);
-        
+
         optimizer.pre_update_params();
         assert_eq!(optimizer.current_learning_rate, 1.0); // First iteration: 1.0 / (1 + 0.1*0)
-        
+
         optimizer.post_update_params();
         optimizer.pre_update_params();
         assert!((optimizer.current_learning_rate - 0.909).abs() < 0.01); // Second: 1.0 / (1 + 0.1*1)
@@ -179,7 +176,7 @@ mod tests {
 
         // First update: momentum is 0, so should be same as without momentum
         assert!((layer.weights[[0, 0]] - 0.99).abs() < 1e-10);
-        
+
         // Momentum should be updated
         assert!((layer.weight_momentums[[0, 0]] - (-0.01)).abs() < 1e-10);
     }

@@ -37,8 +37,8 @@ pub fn create_data(samples: usize, classes: usize) -> (Array2<f64>, Array1<usize
         for sample in 0..samples {
             let ix = sample + class_number * samples;
             let r = rng.gen_range(0.0..1.0);
-            let t = rng.gen_range(class_number as f64 * 4.0..(class_number + 1) as f64 * 4.0)
-                + r * 0.2;
+            let t =
+                rng.gen_range(class_number as f64 * 4.0..(class_number + 1) as f64 * 4.0) + r * 0.2;
             X[[ix, 0]] = r * t.sin();
             X[[ix, 1]] = r * t.cos();
             y[ix] = class_number;
@@ -89,13 +89,13 @@ mod tests {
     #[test]
     fn test_create_data() {
         let (X, y) = create_data(50, 3);
-        
+
         assert_eq!(X.shape(), &[150, 2]); // 50 samples * 3 classes = 150 total
         assert_eq!(y.len(), 150);
-        
+
         // Check that labels are in valid range
         assert!(y.iter().all(|&label| label < 3));
-        
+
         // Check that each class has 50 samples
         for class in 0..3 {
             let count = y.iter().filter(|&&label| label == class).count();
@@ -107,20 +107,20 @@ mod tests {
     fn test_accuracy_perfect() {
         let predictions = arr1(&[0, 1, 2, 0, 1, 2]);
         let labels = arr1(&[0, 1, 2, 0, 1, 2]);
-        assert_eq!(accuracy(&predictions, &labels), 1.0);
+        assert!((accuracy(&predictions, &labels) - 1.0).abs() < f64::EPSILON);
     }
 
     #[test]
     fn test_accuracy_partial() {
         let predictions = arr1(&[0, 1, 2, 1]);
         let labels = arr1(&[0, 1, 1, 1]);
-        assert_eq!(accuracy(&predictions, &labels), 0.75);
+        assert!((accuracy(&predictions, &labels) - 0.75).abs() < f64::EPSILON);
     }
 
     #[test]
     fn test_accuracy_zero() {
         let predictions = arr1(&[0, 0, 0, 0]);
         let labels = arr1(&[1, 1, 1, 1]);
-        assert_eq!(accuracy(&predictions, &labels), 0.0);
+        assert!((accuracy(&predictions, &labels) - 0.0).abs() < f64::EPSILON);
     }
 }

@@ -7,10 +7,19 @@
 //!
 //! - Modular architecture with clean separation of concerns
 //! - Dense (fully connected) layers
-//! - Multiple activation functions (ReLU, Softmax)
+//! - Multiple activation functions (`ReLU`, `Softmax`)
 //! - Loss functions with gradient computation
 //! - SGD optimizer with momentum and learning rate decay
 //! - Example datasets for quick experimentation
+
+#![warn(missing_docs)]
+#![warn(clippy::all)]
+#![warn(clippy::pedantic)]
+#![allow(clippy::module_name_repetitions)]
+#![allow(clippy::must_use_candidate)] // Many builder-style methods don't need must_use
+#![allow(clippy::missing_errors_doc)] // Educational code, errors are self-explanatory
+#![allow(clippy::missing_panics_doc)] // Panics in tests are intentional
+#![allow(non_snake_case)] // Allow X for features in ML convention
 //!
 //! # Example
 //!
